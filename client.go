@@ -6,13 +6,12 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
-	"net"
 
 	"github.com/pkg/errors"
 )
 
 type Client struct {
-	conn   net.Conn
+	rw     io.ReadWriter
 	nodeID string
 }
 
@@ -27,7 +26,7 @@ func (c *Client) Listen(ctx context.Context) error {
 
 	c.sendReady()
 
-	br := bufio.NewReader(c.conn)
+	br := bufio.NewReader(c.rw)
 	buf := make([]byte, 4)
 	var msg Message
 	for {
@@ -65,7 +64,7 @@ func (c *Client) startHatching(ctx context.Context, locustCount int64, hatchRate
 }
 
 func (c *Client) send(messageType string, data map[string]interface{}) error {
-	return EncodeMessage(c.conn, &Message{
+	return EncodeMessage(c.rw, &Message{
 		Type:   messageType,
 		Data:   data,
 		NodeID: c.nodeID,
