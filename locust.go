@@ -26,7 +26,7 @@ var DefaultEnvironment = &Environment{
 // ref: https://github.com/locustio/locust/blob/master/locust/runners.py#L355
 func (e *Environment) GenNodeID() string {
 	hostname, _ := e.HostName()
-	timestamp := e.TimeNow().Unix()
+	timestamp := e.TimeNow().UnixNano()
 	randomNum := e.RandInt(10000)
 
 	b := new(bytes.Buffer)
