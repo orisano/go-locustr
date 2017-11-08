@@ -6,8 +6,14 @@ import (
 )
 
 func Run(ctx context.Context, conn net.Conn) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	client := &Client{
+		rw:     conn,
+		nodeID: GenNodeID(),
+	}
+	return client.Listen(ctx)
+}
 
-	return nil
+type runner struct {
+	numClients int
+	hatchRate  float64
 }

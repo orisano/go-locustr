@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -60,7 +61,17 @@ func (c *Client) Listen(ctx context.Context) error {
 }
 
 func (c *Client) startHatching(ctx context.Context, locustCount int64, hatchRate float64) error {
-	return nil
+	interval := time.Duration(int64(float64(1*time.Second) / hatchRate))
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
 }
 
 func (c *Client) send(messageType string, data map[string]interface{}) error {
