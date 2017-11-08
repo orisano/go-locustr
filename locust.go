@@ -2,12 +2,14 @@ package locustr
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"io"
 	"math/rand"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -44,4 +46,29 @@ func (e *Environment) GenNodeID() string {
 
 func GenNodeID() string {
 	return DefaultEnvironment.GenNodeID()
+}
+
+type Locust struct {
+	task   Task
+	cancel context.CancelFunc
+	rwMu   sync.RWMutex
+}
+
+func (l *Locust) Run(ctx context.Context) {
+	l.rwMu.Lock()
+	ctx, cancel := context.WithCancel(ctx)
+	l.cancel = cancel
+	l.rwMu.Unlock()
+	defer l.cancel()
+
+	// TODO: fix
+	l.task.Fn(nil)
+}
+
+func (l *Locust) Stop() {
+	l.rwMu.RLock()
+	if l.cancel != nil {
+		l.cancel()
+	}
+	l.rwMu.RUnlock()
 }
