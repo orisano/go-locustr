@@ -49,16 +49,16 @@ func GenNodeID() string {
 }
 
 type Locust struct {
-	task   Task
-	cancel context.CancelFunc
-	rwMu   sync.RWMutex
+	task     Task
+	cancel   context.CancelFunc
+	cancelMu sync.RWMutex
 }
 
 func (l *Locust) Run(ctx context.Context) {
-	l.rwMu.Lock()
+	l.cancelMu.Lock()
 	ctx, cancel := context.WithCancel(ctx)
 	l.cancel = cancel
-	l.rwMu.Unlock()
+	l.cancelMu.Unlock()
 	defer l.cancel()
 
 	// TODO: fix
@@ -66,9 +66,9 @@ func (l *Locust) Run(ctx context.Context) {
 }
 
 func (l *Locust) Stop() {
-	l.rwMu.RLock()
+	l.cancelMu.RLock()
 	if l.cancel != nil {
 		l.cancel()
 	}
-	l.rwMu.RUnlock()
+	l.cancelMu.RUnlock()
 }
