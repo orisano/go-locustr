@@ -3,9 +3,12 @@ package locustr
 import (
 	"context"
 	"math"
+	"math/rand"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/orisano/worker"
 	"github.com/pkg/errors"
 )
 
@@ -18,27 +21,20 @@ const (
 	StateStopped
 )
 
-func Run(ctx context.Context, conn net.Conn) error {
-	client := &Client{
-		rw:     conn,
-		nodeID: GenNodeID(),
-	}
-	return client.Listen(ctx)
-}
-
 type Runner struct {
 	conn  net.Conn
 	tasks []Task
 
 	nodeID string
 
-	hatchRate float64
+	numClients int32
+	hatchRate  float64
 
 	state   State
 	stateMu sync.RWMutex
 
-	locusts   []Locust
-	locustsMu sync.RWMutex
+	locusts    worker.Group
+	occurrence map[string][]int32
 }
 
 func NewRunner(masterHost string, masterPort int) (*Runner, error) {
@@ -48,11 +44,17 @@ func NewRunner(masterHost string, masterPort int) (*Runner, error) {
 	}
 	nodeID := GenNodeID()
 
+	// context null check only
+	locusts, _ := worker.NewGroup(context.Background())
+
 	return &Runner{
-		conn:      conn,
-		nodeID:    nodeID,
-		hatchRate: 1,
-		state:     StateInit,
+		conn:       conn,
+		nodeID:     nodeID,
+		numClients: 0,
+		hatchRate:  1,
+		state:      StateInit,
+		locusts:    locusts,
+		occurrence: make(map[string][]int32),
 	}, nil
 }
 
@@ -79,7 +81,27 @@ func (r *Runner) weightLocusts(amount int) []Locust {
 func (r *Runner) spawnLocusts(count int) {
 	bucket := r.weightLocusts(count)
 	count = len(bucket)
+	shuffle(bucket)
 	if r.state == StateInit || r.state == StateStopped {
 		r.state = StateHatching
+		r.numClients = int32(count)
+	} else {
+		r.numClients += int32(count)
+	}
+
+	interval := time.Duration(int64(float64(time.Second) / r.hatchRate))
+	ticker := time.NewTicker(interval)
+	for _, locust := range bucket {
+		id := r.locusts.Spawn(locust.Run)
+		r.occurrence[locust.task.Name] = append(r.occurrence[locust.task.Name], id)
+		<-ticker.C
+	}
+	// sendHatchCompleteEvent r.numClients
+}
+
+func shuffle(locusts []Locust) {
+	for i := len(locusts) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		locusts[i], locusts[j] = locusts[j], locusts[i]
 	}
 }
